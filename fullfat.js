@@ -24,6 +24,7 @@ util.inherits(FullFat, EE)
 module.exports = FullFat
 
 function FullFat(conf) {
+  console.log('Entered FullFat')
   if (!conf.skim || !conf.fat) {
     throw new Error('skim and fat database urls required')
   }
@@ -67,16 +68,20 @@ function FullFat(conf) {
   this.boundary = 'npmFullFat-' + crypto.randomBytes(6).toString('base64')
 
   this.readSeq(this.seqFile)
+  console.log('Leaving FullFat')
 }
 
 FullFat.prototype.readSeq = function(file) {
+  console.log('Entered readSeq inline function')
   if (!this.seqFile)
     process.nextTick(this.start.bind(this))
   else
     fs.readFile(file, 'ascii', this.gotSeq.bind(this))
+  console.log('Leaving readSeq inline function')
 }
 
 FullFat.prototype.gotSeq = function(er, data) {
+  console.log('Entered gotSeq inline function')
   if (er && er.code === 'ENOENT')
     data = '0'
   else if (er)
@@ -85,9 +90,11 @@ FullFat.prototype.gotSeq = function(er, data) {
   data = +data || 0
   this.since = data
   this.start()
+  console.log('Leaving gotSeq inline function')
 }
 
 FullFat.prototype.start = function() {
+  console.log('Entered start inline function')
   if (this.follow)
     return this.emit('error', new Error('already started'))
 
@@ -98,18 +105,22 @@ FullFat.prototype.start = function() {
     inactivity_ms: this.inactivity_ms
   }, this.onchange.bind(this))
   this.follow.on('error', this.emit.bind(this, 'error'))
+  console.log('Leaving start inline function')
 }
 
 FullFat.prototype._emit = function(ev, arg) {
+  console.log('Entered _emit inline function')
   // Don't emit errors while writing seq
   if (ev === 'error' && this.writingSeq) {
     this.error = arg
   } else {
     EventEmitter.prototype.emit.apply(this, arguments)
   }
+  console.log('Leaving _emit inline function')
 }
 
 FullFat.prototype.writeSeq = function() {
+  console.log('Entered writeSeq inline function')
   var seq = +this.since
   if (this.seqFile && !this.writingSeq && seq > 0) {
     var data = seq + '\n'
@@ -131,9 +142,11 @@ FullFat.prototype.writeSeq = function() {
       }
     }.bind(this))
   }
+  console.log('Leaving writeSeq inline function')
 }
 
 FullFat.prototype.onchange = function(er, change) {
+  console.log('Entered onchange inline function')
   if (er)
     return this.emit('error', er)
 
@@ -149,9 +162,11 @@ FullFat.prototype.onchange = function(er, change) {
     this.delete(change)
   else
     this.getDoc(change)
+  console.log('Leaving onchange inline function')
 }
 
 FullFat.prototype.getDoc = function(change) {
+  console.log('Entered getDoc inline function')
   var q = '?revs=true&att_encoding_info=true'
   var opt = url.parse(this.skim + '/' + change.id + q)
   opt.method = 'GET'
@@ -163,9 +178,11 @@ FullFat.prototype.getDoc = function(change) {
   var req = hh.get(opt)
   req.on('error', this.emit.bind(this, 'error'))
   req.on('response', parse(this.ongetdoc.bind(this, change)))
+  console.log('Leaving getDoc inline function')
 }
 
 FullFat.prototype.ongetdoc = function(change, er, data, res) {
+  console.log('Entered ongetdoc inline function')
   if (er)
     this.emit('error', er)
   else {
@@ -177,14 +194,18 @@ FullFat.prototype.ongetdoc = function(change, er, data, res) {
     else
       this.putDoc(change)
   }
+  console.log('Leaving ongetdoc inline function')
 }
 
 FullFat.prototype.unpublish = function(change) {
+  console.log('Entered unpublish inline function')
   change.fat = change.doc
   this.put(change, [])
+  console.log('Leaving unpublish inline function')
 }
 
 FullFat.prototype.putDoc = function(change) {
+  console.log('Entered putdoc inline function')
   var q = '?revs=true&att_encoding_info=true'
   var opt = url.parse(this.fat + '/' + change.id + q)
 
@@ -196,9 +217,11 @@ FullFat.prototype.putDoc = function(change) {
   var req = hh.get(opt)
   req.on('error', this.emit.bind(this, 'error'))
   req.on('response', parse(this.onfatget.bind(this, change)))
+  console.log('Leaving putdoc inline function')
 }
 
 FullFat.prototype.putDesign = function(change) {
+  console.log('Entered putDesign inline function')
   var doc = change.doc
   this.pause()
   var opt = url.parse(this.fat + '/' + change.id + '?new_edits=false')
@@ -215,16 +238,20 @@ FullFat.prototype.putDesign = function(change) {
   req.on('response', parse(this.onputdesign.bind(this, change)))
   req.on('error', this.emit.bind(this, 'error'))
   req.end(b)
+  console.log('Entered putDesign inline function')
 }
 
 FullFat.prototype.onputdesign = function(change, er, data, res) {
+  console.log('Entered onputdesign inline function')
   if (er)
     return this.emit('error', er)
   this.emit('putDesign', change, data)
   this.resume()
+  console.log('Leaving onputdesign inline function')
 }
 
 FullFat.prototype.delete = function(change) {
+  console.log('Entered delete inline function')
   var name = change.id
 
   var opt = url.parse(this.fat + '/' + name)
@@ -238,9 +265,11 @@ FullFat.prototype.delete = function(change) {
   req.on('response', this.ondeletehead.bind(this, change))
   req.on('error', this.emit.bind(this, 'error'))
   req.end()
+  console.log('Leaving delete inline function')
 }
 
 FullFat.prototype.ondeletehead = function(change, res) {
+  console.log('Entered ondeletehead inline function')
   // already gone?  totally fine.  move on, nothing to delete here.
   if (res.statusCode === 404)
     return this.afterDelete(change)
@@ -256,9 +285,11 @@ FullFat.prototype.ondeletehead = function(change, res) {
   req.on('response', parse(this.ondelete.bind(this, change)))
   req.on('error', this.emit.bind(this, 'error'))
   req.end()
+  console.log('Leaving ondeletehead inline function')
 }
 
 FullFat.prototype.ondelete = function(change, er, data, res) {
+  console.log('Entered ondelete inline function')
   if (er && er.statusCode === 404)
     this.afterDelete(change)
   else if (er)
@@ -266,14 +297,18 @@ FullFat.prototype.ondelete = function(change, er, data, res) {
   else
     // scorch the earth! remove fully! repeat until 404!
     this.delete(change)
+  console.log('Leaving ondelete inline function')
 }
 
 FullFat.prototype.afterDelete = function(change) {
+  console.log('Entered afterdelete inline function')
   this.emit('delete', change)
   this.resume()
+  console.log('Leaving afterdelete inline function')
 }
 
 FullFat.prototype.onfatget = function(change, er, f, res) {
+  console.log('Entered onfatget inline function')
   if (er && er.statusCode !== 404)
     return this.emit('error', er)
 
@@ -283,10 +318,12 @@ FullFat.prototype.onfatget = function(change, er, f, res) {
   f._attachments = f._attachments || {}
   change.fat = f
   this.merge(change)
+  console.log('Leaving onfatget inline function')
 }
 
 
 FullFat.prototype.merge = function(change) {
+  console.log('Entered merge inline function')
   var s = change.doc
   var f = change.fat
 
@@ -369,9 +406,12 @@ FullFat.prototype.merge = function(change) {
     this.resume()
   else
     this.fetchAll(change, need, [])
+
+  console.log('Leaving merge inline function')
 }
 
 FullFat.prototype.put = function(change, did) {
+  console.log('Entered put inline function')
   var f = change.fat
   change.did = did
   // at this point, all the attachments have been fetched into
@@ -454,9 +494,11 @@ FullFat.prototype.put = function(change, did) {
   req.write(doc)
   this.putAttachments(req, change, boundaries, send)
   req.on('response', parse(this.onputres.bind(this, change)))
+  console.log('Leaving put inline function')
 }
 
 FullFat.prototype.putAttachments = function(req, change, boundaries, send) {
+  console.log('Entered putAttachments inline function')
   // send is the ordered list of [[name, attachment object],...]
   var b = boundaries.shift()
   var ns = send.shift()
@@ -482,9 +524,11 @@ FullFat.prototype.putAttachments = function(req, change, boundaries, send) {
 
   fstr.on('error', this.emit.bind(this, 'error'))
   fstr.pipe(req, { end: false })
+  console.log('Leaving putAttachments inline function')
 }
 
 FullFat.prototype.onputres = function(change, er, data, res) {
+  console.log('Entered onputres inline function')
 
   if (!change.id)
     throw new Error('wtf?')
@@ -509,9 +553,11 @@ FullFat.prototype.onputres = function(change, er, data, res) {
     rimraf(this.tmp + '/' + change.id + '-' + change.seq, function() {})
     this.resume()
   }
+  console.log('Leaving onputres inline function')
 }
 
 FullFat.prototype.fetchAll = function(change, need, did) {
+  console.log('Entered fetchAll inline function')
   var f = change.fat
   var tmp = path.resolve(this.tmp, change.id + '-' + change.seq)
   var len = need.length
@@ -525,9 +571,11 @@ FullFat.prototype.fetchAll = function(change, need, did) {
       return this.emit('error', er)
     need.forEach(this.fetchOne.bind(this, change, need, did))
   }.bind(this))
+  console.log('Leaving fetchAll inline function')
 }
 
 FullFat.prototype.fetchOne = function(change, need, did, v) {
+  console.log('Entered fetchOne inline function')
   var f = change.fat
   var r = url.parse(change.doc.versions[v].dist.tarball)
   if (this.registry) {
@@ -545,9 +593,11 @@ FullFat.prototype.fetchOne = function(change, need, did, v) {
   req.on('error', this.emit.bind(this, 'error'))
   req.on('response', this.onattres.bind(this, change, need, did, v, r))
   req.end()
+  console.log('Leaving fetchOne inline function')
 }
 
 FullFat.prototype.onattres = function(change, need, did, v, r, res) {
+  console.log('Entered onattres inline function')
   var f = change.fat
   var att = r.href
   var sum = f.versions[v].dist.shasum
@@ -646,30 +696,41 @@ FullFat.prototype.onattres = function(change, need, did, v, r, res) {
     maybeDone(a)
 
   }.bind(this))
+  console.log('Leaving onattres inline function')
 }
 
 FullFat.prototype.destroy = function() {
+  console.log('Entered destroy inline function')
   if (this.follow)
     this.follow.die()
+  console.log('Leaving destroy inline function')
 }
 
 FullFat.prototype.pause = function() {
+  console.log('Entered pause inline function')
   if (this.follow)
     this.follow.pause()
+  console.log('Leaving pause inline function')
 }
 
 FullFat.prototype.resume = function() {
+  console.log('Entered resume inline function')
   this.writeSeq()
   if (this.follow)
     this.follow.resume()
+  console.log('Leaving resume inline function')
 }
 
 util.inherits(Counter, stream.Writable)
 function Counter(options) {
+  console.log('Entered Counter inline function')
   stream.Writable.call(this, options)
   this.count = 0
+  console.log('Leaving Counter inline function')
 }
 Counter.prototype._write = function(chunk, encoding, cb) {
+  console.log('Entered Counter _write inline function')
   this.count += chunk.length
   cb()
+  console.log('Leaving Counter _write inline function')
 }
