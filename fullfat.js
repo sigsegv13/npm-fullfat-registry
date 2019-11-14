@@ -31,18 +31,22 @@ function FullFat(conf) {
 
   this.skim = url.parse(conf.skim).href
   this.skim = this.skim.replace(/\/+$/, '')
+  console.log('DEBUG: FullFat: skim - "%s"', this.skim)
 
   var f = url.parse(conf.fat)
   this.fat = f.href
   this.fat = this.fat.replace(/\/+$/, '')
+  console.log('DEBUG: FullFat: fat - "%s"', this.fat)
   delete f.auth
   this.publicFat = url.format(f)
   this.publicFat = this.publicFat.replace(/\/+$/, '')
+  console.log('DEBUG: FullFat: publicFat - "%s"', this.publicFat)
 
   this.registry = null
   if (conf.registry) {
     this.registry = url.parse(conf.registry).href
     this.registry = this.registry.replace(/\/+$/, '')
+    console.log('DEBUG: FullFat: registry - "%s"', this.registry)
   }
 
   this.ua = conf.ua || ua
@@ -73,22 +77,31 @@ function FullFat(conf) {
 
 FullFat.prototype.readSeq = function(file) {
   console.log('Entered readSeq inline function')
-  if (!this.seqFile)
+  if (!this.seqFile) {
+    console.log('DEBUG: readSeq: "no seq file config, calling start"')
     process.nextTick(this.start.bind(this))
-  else
+  } else {
+    console.log('DEBUG: readSeq: "calling gotSeq"')
     fs.readFile(file, 'ascii', this.gotSeq.bind(this))
+  }
   console.log('Leaving readSeq inline function')
 }
 
 FullFat.prototype.gotSeq = function(er, data) {
   console.log('Entered gotSeq inline function')
-  if (er && er.code === 'ENOENT')
+  if (er && er.code === 'ENOENT') {
+    console.log('DEBUG: gotSeq: "no seq file"')
     data = '0'
-  else if (er)
+  } else if (er) {
+    console.log('DEBUG: gotSeq: "emit error"')
     return this.emit('error', er)
+  }
 
   data = +data || 0
+  console.log('DEBUG: gotSeq: data - "%d"', data)
   this.since = data
+  console.log('DEBUG: gotSeq: since - "%d"', this.since)
+  console.log('DEBUG: gotSeq: "calling start"')
   this.start()
   console.log('Leaving gotSeq inline function')
 }
@@ -147,21 +160,29 @@ FullFat.prototype.writeSeq = function() {
 
 FullFat.prototype.onchange = function(er, change) {
   console.log('Entered onchange inline function')
-  if (er)
+  if (er) {
+    console.log('DEBUG: onchange: "error')
     return this.emit('error', er)
+  }
 
-  if (!change.id)
+  if (!change.id) {
+    console.log('DEBUG: onchange: no change id for seq "%d"', change.seq)
+    console.log('Returning from onchange inline function')
     return
+  }
 
   this.pause()
   this.since = change.seq
 
   this.emit('change', change)
 
-  if (change.deleted)
+  if (change.deleted) {
+    console.log('DEBUG: onchange: "calling delete"')
     this.delete(change)
-  else
+  } else {
+    console.log('DEBUG: onchange: "calling getDoc"')
     this.getDoc(change)
+  }
   console.log('Leaving onchange inline function')
 }
 
@@ -175,24 +196,32 @@ FullFat.prototype.getDoc = function(change) {
     'connection': 'close'
   }
 
+  console.log('DEBUG: getDoc: executing skim request for doc "%s"', change.id)
   var req = hh.get(opt)
+  console.log('DEBUG: getDoc: "setting skim request error event"')
   req.on('error', this.emit.bind(this, 'error'))
+  console.log('DEBUG: getDoc: "setting skim request response event to call ongetdoc"')
   req.on('response', parse(this.ongetdoc.bind(this, change)))
   console.log('Leaving getDoc inline function')
 }
 
 FullFat.prototype.ongetdoc = function(change, er, data, res) {
   console.log('Entered ongetdoc inline function')
-  if (er)
+  if (er) {
+    console.log('DEBUG: ongetdoc: "error"')
     this.emit('error', er)
-  else {
+  } else {
     change.doc = data
-    if (change.id.match(/^_design\//))
+    if (change.id.match(/^_design\//)) {
+      console.log('DEBUG: ongetdoc: "calling putDesign"')
       this.putDesign(change)
-    else if (data.time && data.time.unpublished)
+    } else if (data.time && data.time.unpublished) {
+      console.log('DEBUG: ongetdoc: "calling unpublish"')
       this.unpublish(change)
-    else
+    } else {
+      console.log('DEBUG: ongetdoc: "calling putDoc"')
       this.putDoc(change)
+    }
   }
   console.log('Leaving ongetdoc inline function')
 }
@@ -205,7 +234,7 @@ FullFat.prototype.unpublish = function(change) {
 }
 
 FullFat.prototype.putDoc = function(change) {
-  console.log('Entered putdoc inline function')
+  console.log('Entered putDoc inline function')
   var q = '?revs=true&att_encoding_info=true'
   var opt = url.parse(this.fat + '/' + change.id + q)
 
@@ -214,10 +243,13 @@ FullFat.prototype.putDoc = function(change) {
     'user-agent': this.ua,
     'connection': 'close'
   }
+  console.log('DEBUG: putDoc: executing fat request for doc "%s"', change.id)
   var req = hh.get(opt)
+  console.log('DEBUG: putDoc: "setting fat request error event"')
   req.on('error', this.emit.bind(this, 'error'))
+  console.log('DEBUG: putDoc: "setting fat request response event to call onfatget"')
   req.on('response', parse(this.onfatget.bind(this, change)))
-  console.log('Leaving putdoc inline function')
+  console.log('Leaving putDoc inline function')
 }
 
 FullFat.prototype.putDesign = function(change) {
@@ -309,14 +341,17 @@ FullFat.prototype.afterDelete = function(change) {
 
 FullFat.prototype.onfatget = function(change, er, f, res) {
   console.log('Entered onfatget inline function')
-  if (er && er.statusCode !== 404)
+  if (er && er.statusCode !== 404) {
+    console.log('DEBUG: onfatget: Returning from onfatget inline function on 404 error')
     return this.emit('error', er)
+  }
 
   if (er)
     f = JSON.parse(JSON.stringify(change.doc))
 
   f._attachments = f._attachments || {}
   change.fat = f
+  console.log('DEBUG: onfatget: Calling merge')
   this.merge(change)
   console.log('Leaving onfatget inline function')
 }
@@ -328,22 +363,32 @@ FullFat.prototype.merge = function(change) {
   var f = change.fat
 
   // if no versions in the skim record, then nothing to fetch
-  if (!s.versions)
+  if (!s.versions) {
+    console.log('DEBUG: merge: no versions')
+    console.log('Returning from merge inline function with call to resume follow')
     return this.resume()
+  }
 
   // Only fetch attachments if it's on the list.
   var pass = true
   if (this.whitelist.length) {
+    console.log('DEBUG: merge: whitelist length "%d"', this.whitelist.length)
     pass = false
     for (var i = 0; !pass && i < this.whitelist.length; i++) {
+      console.log('DEBUG: merge: whitelist loop, index "%d", element "%s"', i, this.whitelist[i])
       var w = this.whitelist[i]
-      if (typeof w === 'string')
+      if (typeof w === 'string') {
+        console.log('DEBUG: merge: whitelist loop, whitelist element type is "string"')
         pass = w === change.id
-      else
+      } else {
+        console.log('DEBUG: merge: whitelist loop, whitelist element type is "%s"', typeof w)
         pass = w.exec(change.id)
+      }
     }
     if (!pass) {
+      console.log('DEBUG: merge: pass, no attachments')
       f._attachments = {}
+      console.log('Returning from merge inline function with call to fetchAll')
       return this.fetchAll(change, [], [])
     }
   }
@@ -708,16 +753,20 @@ FullFat.prototype.destroy = function() {
 
 FullFat.prototype.pause = function() {
   console.log('Entered pause inline function')
-  if (this.follow)
+  if (this.follow) {
+    console.log('DEBUG: pause: "pausing follow"')
     this.follow.pause()
+  }
   console.log('Leaving pause inline function')
 }
 
 FullFat.prototype.resume = function() {
   console.log('Entered resume inline function')
   this.writeSeq()
-  if (this.follow)
+  if (this.follow) {
+    console.log('DEBUG: resume: "resume follow"')
     this.follow.resume()
+  }
   console.log('Leaving resume inline function')
 }
 

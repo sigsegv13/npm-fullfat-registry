@@ -38,7 +38,7 @@ var parser = dashdash.createParser({
       helpArg: 'FILE' },
     { names: [ 'inactivity-ms', 'i' ],
       type: 'number',
-      help: 'Max ms to wait before assuming disconnection. Default=3600000',
+      help: 'Max ms to wait before assuming disconnection from skim. Default=3600000',
       helpArg: 'MS' },
     { names: [ 'help', 'h' ],
       type: 'bool',
