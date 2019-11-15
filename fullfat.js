@@ -189,7 +189,7 @@ FullFat.prototype.onchange = function(er, change) {
 FullFat.prototype.getDoc = function(change) {
   console.log('Entered getDoc inline function')
   var q = '?revs=true&att_encoding_info=true'
-  var opt = url.parse(this.skim + '/' + change.id + q)
+  var opt = url.parse(this.skim + '/' + encodeURIComponent(change.id) + q)
   opt.method = 'GET'
   opt.headers = {
     'user-agent': this.ua,
@@ -236,7 +236,7 @@ FullFat.prototype.unpublish = function(change) {
 FullFat.prototype.putDoc = function(change) {
   console.log('Entered putDoc inline function')
   var q = '?revs=true&att_encoding_info=true'
-  var opt = url.parse(this.fat + '/' + change.id + q)
+  var opt = url.parse(this.fat + '/' + encodeURIComponent(change.id) + q)
 
   opt.method = 'GET'
   opt.headers = {
@@ -256,7 +256,7 @@ FullFat.prototype.putDesign = function(change) {
   console.log('Entered putDesign inline function')
   var doc = change.doc
   this.pause()
-  var opt = url.parse(this.fat + '/' + change.id + '?new_edits=false')
+  var opt = url.parse(this.fat + '/' + encodeURIComponent(change.id) + '?new_edits=false')
   var b = new Buffer(JSON.stringify(doc), 'utf8')
   opt.method = 'PUT'
   opt.headers = {
@@ -286,7 +286,7 @@ FullFat.prototype.delete = function(change) {
   console.log('Entered delete inline function')
   var name = change.id
 
-  var opt = url.parse(this.fat + '/' + name)
+  var opt = url.parse(this.fat + '/' + encodeURIComponent(name))
   opt.headers = {
     'user-agent': this.ua,
     'connection': 'close'
@@ -307,7 +307,7 @@ FullFat.prototype.ondeletehead = function(change, res) {
     return this.afterDelete(change)
 
   var rev = res.headers.etag.replace(/^"|"$/g, '')
-  opt = url.parse(this.fat + '/' + change.id + '?rev=' + rev)
+  opt = url.parse(this.fat + '/' + encodeURIComponent(change.id)` + '?rev=' + rev)
   opt.headers = {
     'user-agent': this.ua,
     'connection': 'close'
@@ -396,16 +396,21 @@ FullFat.prototype.merge = function(change) {
   var need = []
   var changed = false
   for (var v in s.versions) {
+    console.log('DEBUG: merge: skim version "%s"', v)
     var tgz = s.versions[v].dist.tarball
+    console.log('DEBUG: merge: skim tgz "%s"', tgz)
     var att = path.basename(url.parse(tgz).pathname)
+    console.log('DEBUG: merge: skim att "%s"', att)
     var ver = s.versions[v]
     f.versions = f.versions || {}
 
     if (!f.versions[v] || f.versions[v].dist.shasum !== ver.dist.shasum) {
+      console.log('DEBUG: merge: fat missing skim version or shasum mismatch')
       f.versions[v] = s.versions[v]
       need.push(v)
       changed = true
     } else if (!f._attachments[att]) {
+      console.log('DEBUG: merge: fat missing attachment for att')
       need.push(v)
       changed = true
     }
@@ -413,27 +418,37 @@ FullFat.prototype.merge = function(change) {
 
   // remove any versions that s removes, or which lack attachments
   for (var v in f.versions) {
-    if (!s.versions[v])
+    console.log('DEBUG: merge: processing fat versions that skim removes')
+    if (!s.versions[v]) {
+      console.log('DEBUG: merge: deleting fat version "%s"', v)
       delete f.versions[v]
+    }
   }
 
 
   for (var a in f._attachments) {
+    console.log('DEBUG: merge: fat attachment "%s"', a)
     var found = false
     for (var v in f.versions) {
+      console.log('DEBUG: merge: attachment: fat version "%s"', v)
       var tgz = f.versions[v].dist.tarball
+      console.log('DEBUG: merge: attachment: fat tgz "%s"', tgz)
       var b = path.basename(url.parse(tgz).pathname)
+      console.log('DEBUG: merge: attachment: fat b "%s"', b)
       if (b === a) {
+        console.log('DEBUG: merge: attachment: found attachment in version')
         found = true
         break
       }
     }
     if (!found) {
+      console.log('DEBUG: merge: attachment: version not found, deleting fat attachment')
       delete f._attachments[a]
       changed = true
     }
   }
 
+  console.log('DEBUG: merge: sync fat with skim')
   for (var k in s) {
     if (k !== '_attachments' && k !== 'versions') {
       if (changed)
@@ -447,10 +462,13 @@ FullFat.prototype.merge = function(change) {
 
   changed = readmeTrim(f) || changed
 
-  if (!changed)
+  if (!changed) {
+    console.log('DEBUG: merge: nothing changed, calling resume')
     this.resume()
-  else
+  } else {
+    console.log('DEBUG: merge: changed, calling fetchAll')
     this.fetchAll(change, need, [])
+  }
 
   console.log('Leaving merge inline function')
 }
@@ -474,6 +492,7 @@ FullFat.prototype.put = function(change, did) {
   // because couchdb is a jerk, and ignores disposition headers.
   // Still include the filenames, though, so at least we dtrt.
   did.forEach(function(att) {
+    console.log('DEBUG: put: att name "%s"', att.name)
     atts[att.name] = {
       length: att.length,
       follows: true
@@ -485,10 +504,14 @@ FullFat.prototype.put = function(change, did) {
 
   var send = []
   Object.keys(atts).forEach(function (name) {
+    console.log('DEBUG: put: atts: name "%s"', JSON.stringify(name))
     var att = atts[name]
 
-    if (att.follows !== true)
+    if (att.follows !== true) {
+      console.log('DEBUG: put: atts: does not follow')
+      console.log('Returning from put inline function')
       return
+    }
 
     send.push([name, att])
     attSize += att.length
@@ -624,7 +647,7 @@ FullFat.prototype.fetchOne = function(change, need, did, v) {
   var f = change.fat
   var r = url.parse(change.doc.versions[v].dist.tarball)
   if (this.registry) {
-    var p = '/' + change.id + '/-/' + path.basename(r.pathname)
+    var p = '/' + encodeURIComponent(change.id) + '/-/' + path.basename(r.pathname)
     r = url.parse(this.registry + p)
   }
 
