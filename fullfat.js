@@ -20,38 +20,36 @@ var version = require('./package.json').version
 var ua = 'npm FullFat/' + version + ' node/' + process.version
 var readmeTrim = require('npm-registry-readme-trim')
 
-var logger = pino({ level: process.env.LOG_LEVEL || 'info' })
+var logger = pino({ prettyPrint: true, level: process.env.LOG_LEVEL || 'info' })
 
 util.inherits(FullFat, EE)
 
 module.exports = FullFat
 
 function FullFat(conf) {
-  console.log('CONSOLE: Entered FullFat')
-  logger.info('INFO: Entered FullFat')
-  logger.debug('DEBUG: Entered FullFat')
+  logger.debug('Entered FullFat')
   if (!conf.skim || !conf.fat) {
     throw new Error('skim and fat database urls required')
   }
 
   this.skim = url.parse(conf.skim).href
   this.skim = this.skim.replace(/\/+$/, '')
-  console.log('DEBUG: FullFat: skim - "%s"', this.skim)
+  logger.debug('FullFat: skim - "%s"', this.skim)
 
   var f = url.parse(conf.fat)
   this.fat = f.href
   this.fat = this.fat.replace(/\/+$/, '')
-  console.log('DEBUG: FullFat: fat - "%s"', this.fat)
+  logger.debug('FullFat: fat - "%s"', this.fat)
   delete f.auth
   this.publicFat = url.format(f)
   this.publicFat = this.publicFat.replace(/\/+$/, '')
-  console.log('DEBUG: FullFat: publicFat - "%s"', this.publicFat)
+  logger.debug('FullFat: publicFat - "%s"', this.publicFat)
 
   this.registry = null
   if (conf.registry) {
     this.registry = url.parse(conf.registry).href
     this.registry = this.registry.replace(/\/+$/, '')
-    console.log('DEBUG: FullFat: registry - "%s"', this.registry)
+    logger.debug('FullFat: registry - "%s"', this.registry)
   }
 
   this.ua = conf.ua || ua
@@ -77,42 +75,42 @@ function FullFat(conf) {
   this.boundary = 'npmFullFat-' + crypto.randomBytes(6).toString('base64')
 
   this.readSeq(this.seqFile)
-  console.log('Leaving FullFat')
+  logger.debug('Leaving FullFat')
 }
 
 FullFat.prototype.readSeq = function(file) {
-  console.log('Entered readSeq inline function')
+  logger.debug('Entered readSeq')
   if (!this.seqFile) {
-    console.log('DEBUG: readSeq: "no seq file config, calling start"')
+    logger.debug('readSeq: "no seq file config, calling start"')
     process.nextTick(this.start.bind(this))
   } else {
-    console.log('DEBUG: readSeq: "calling gotSeq"')
+    logger.debug('readSeq: "calling gotSeq"')
     fs.readFile(file, 'ascii', this.gotSeq.bind(this))
   }
-  console.log('Leaving readSeq inline function')
+  logger.debug('Leaving readSeq')
 }
 
 FullFat.prototype.gotSeq = function(er, data) {
-  console.log('Entered gotSeq inline function')
+  logger.debug('Entered gotSeq')
   if (er && er.code === 'ENOENT') {
-    console.log('DEBUG: gotSeq: "no seq file"')
+    logger.debug('gotSeq: "no seq file"')
     data = '0'
   } else if (er) {
-    console.log('DEBUG: gotSeq: "emit error"')
+    logger.debug('gotSeq: "emit error"')
     return this.emit('error', er)
   }
 
   data = +data || 0
-  console.log('DEBUG: gotSeq: data - "%d"', data)
+  logger.debug('gotSeq: data - "%d"', data)
   this.since = data
-  console.log('DEBUG: gotSeq: since - "%d"', this.since)
-  console.log('DEBUG: gotSeq: "calling start"')
+  logger.debug('gotSeq: since - "%d"', this.since)
+  logger.debug('gotSeq: "calling start"')
   this.start()
-  console.log('Leaving gotSeq inline function')
+  logger.debug('Leaving gotSeq')
 }
 
 FullFat.prototype.start = function() {
-  console.log('Entered start inline function')
+  logger.debug('Entered start')
   if (this.follow)
     return this.emit('error', new Error('already started'))
 
@@ -123,22 +121,22 @@ FullFat.prototype.start = function() {
     inactivity_ms: this.inactivity_ms
   }, this.onchange.bind(this))
   this.follow.on('error', this.emit.bind(this, 'error'))
-  console.log('Leaving start inline function')
+  logger.debug('Leaving start')
 }
 
 FullFat.prototype._emit = function(ev, arg) {
-  console.log('Entered _emit inline function')
+  logger.debug('Entered _emit')
   // Don't emit errors while writing seq
   if (ev === 'error' && this.writingSeq) {
     this.error = arg
   } else {
     EventEmitter.prototype.emit.apply(this, arguments)
   }
-  console.log('Leaving _emit inline function')
+  logger.debug('Leaving _emit')
 }
 
 FullFat.prototype.writeSeq = function() {
-  console.log('Entered writeSeq inline function')
+  logger.debug('Entered writeSeq')
   var seq = +this.since
   if (this.seqFile && !this.writingSeq && seq > 0) {
     var data = seq + '\n'
@@ -160,19 +158,19 @@ FullFat.prototype.writeSeq = function() {
       }
     }.bind(this))
   }
-  console.log('Leaving writeSeq inline function')
+  logger.debug('Leaving writeSeq')
 }
 
 FullFat.prototype.onchange = function(er, change) {
-  console.log('Entered onchange inline function')
+  logger.debug('Entered onchange')
   if (er) {
-    console.log('DEBUG: onchange: "error')
+    logger.debug('onchange: "error')
     return this.emit('error', er)
   }
 
   if (!change.id) {
-    console.log('DEBUG: onchange: no change id for seq "%d"', change.seq)
-    console.log('Returning from onchange inline function')
+    logger.debug('onchange: no change id for seq "%d"', change.seq)
+    logger.debug('Returning from onchange')
     return
   }
 
@@ -182,17 +180,17 @@ FullFat.prototype.onchange = function(er, change) {
   this.emit('change', change)
 
   if (change.deleted) {
-    console.log('DEBUG: onchange: "calling delete"')
+    logger.debug('onchange: "calling delete"')
     this.delete(change)
   } else {
-    console.log('DEBUG: onchange: "calling getDoc"')
+    logger.debug('onchange: "calling getDoc"')
     this.getDoc(change)
   }
-  console.log('Leaving onchange inline function')
+  logger.debug('Leaving onchange')
 }
 
 FullFat.prototype.getDoc = function(change) {
-  console.log('Entered getDoc inline function')
+  logger.debug('Entered getDoc')
   var q = '?revs=true&att_encoding_info=true'
   var opt = url.parse(this.skim + '/' + encodeURIComponent(change.id) + q)
   opt.method = 'GET'
@@ -201,45 +199,45 @@ FullFat.prototype.getDoc = function(change) {
     'connection': 'close'
   }
 
-  console.log('DEBUG: getDoc: executing skim request for doc "%s"', change.id)
+  logger.debug('getDoc: executing skim request for doc "%s"', change.id)
   var req = hh.get(opt)
-  console.log('DEBUG: getDoc: "setting skim request error event"')
+  logger.debug('getDoc: "setting skim request error event"')
   req.on('error', this.emit.bind(this, 'error'))
-  console.log('DEBUG: getDoc: "setting skim request response event to call ongetdoc"')
+  logger.debug('getDoc: "setting skim request response event to call ongetdoc"')
   req.on('response', parse(this.ongetdoc.bind(this, change)))
-  console.log('Leaving getDoc inline function')
+  logger.debug('Leaving getDoc')
 }
 
 FullFat.prototype.ongetdoc = function(change, er, data, res) {
-  console.log('Entered ongetdoc inline function')
+  logger.debug('Entered ongetdoc')
   if (er) {
-    console.log('DEBUG: ongetdoc: "error"')
+    logger.debug('ongetdoc: "error"')
     this.emit('error', er)
   } else {
     change.doc = data
     if (change.id.match(/^_design\//)) {
-      console.log('DEBUG: ongetdoc: "calling putDesign"')
+      logger.debug('ongetdoc: "calling putDesign"')
       this.putDesign(change)
     } else if (data.time && data.time.unpublished) {
-      console.log('DEBUG: ongetdoc: "calling unpublish"')
+      logger.debug('ongetdoc: "calling unpublish"')
       this.unpublish(change)
     } else {
-      console.log('DEBUG: ongetdoc: "calling putDoc"')
+      logger.debug('ongetdoc: "calling putDoc"')
       this.putDoc(change)
     }
   }
-  console.log('Leaving ongetdoc inline function')
+  logger.debug('Leaving ongetdoc')
 }
 
 FullFat.prototype.unpublish = function(change) {
-  console.log('Entered unpublish inline function')
+  logger.debug('Entered unpublish')
   change.fat = change.doc
   this.put(change, [])
-  console.log('Leaving unpublish inline function')
+  logger.debug('Leaving unpublish')
 }
 
 FullFat.prototype.putDoc = function(change) {
-  console.log('Entered putDoc inline function')
+  logger.debug('Entered putDoc')
   var q = '?revs=true&att_encoding_info=true'
   var opt = url.parse(this.fat + '/' + encodeURIComponent(change.id) + q)
 
@@ -248,17 +246,17 @@ FullFat.prototype.putDoc = function(change) {
     'user-agent': this.ua,
     'connection': 'close'
   }
-  console.log('DEBUG: putDoc: executing fat request for doc "%s"', change.id)
+  logger.debug('putDoc: executing fat request for doc "%s"', change.id)
   var req = hh.get(opt)
-  console.log('DEBUG: putDoc: "setting fat request error event"')
+  logger.debug('putDoc: "setting fat request error event"')
   req.on('error', this.emit.bind(this, 'error'))
-  console.log('DEBUG: putDoc: "setting fat request response event to call onfatget"')
+  logger.debug('putDoc: "setting fat request response event to call onfatget"')
   req.on('response', parse(this.onfatget.bind(this, change)))
-  console.log('Leaving putDoc inline function')
+  logger.debug('Leaving putDoc')
 }
 
 FullFat.prototype.putDesign = function(change) {
-  console.log('Entered putDesign inline function')
+  logger.debug('Entered putDesign')
   var doc = change.doc
   this.pause()
   var opt = url.parse(this.fat + '/' + encodeURIComponent(change.id) + '?new_edits=false')
@@ -275,20 +273,20 @@ FullFat.prototype.putDesign = function(change) {
   req.on('response', parse(this.onputdesign.bind(this, change)))
   req.on('error', this.emit.bind(this, 'error'))
   req.end(b)
-  console.log('Entered putDesign inline function')
+  logger.debug('Entered putDesign')
 }
 
 FullFat.prototype.onputdesign = function(change, er, data, res) {
-  console.log('Entered onputdesign inline function')
+  logger.debug('Entered onputdesign')
   if (er)
     return this.emit('error', er)
   this.emit('putDesign', change, data)
   this.resume()
-  console.log('Leaving onputdesign inline function')
+  logger.debug('Leaving onputdesign')
 }
 
 FullFat.prototype.delete = function(change) {
-  console.log('Entered delete inline function')
+  logger.debug('Entered delete')
   var name = change.id
 
   var opt = url.parse(this.fat + '/' + encodeURIComponent(name))
@@ -302,11 +300,11 @@ FullFat.prototype.delete = function(change) {
   req.on('response', this.ondeletehead.bind(this, change))
   req.on('error', this.emit.bind(this, 'error'))
   req.end()
-  console.log('Leaving delete inline function')
+  logger.debug('Leaving delete')
 }
 
 FullFat.prototype.ondeletehead = function(change, res) {
-  console.log('Entered ondeletehead inline function')
+  logger.debug('Entered ondeletehead')
   // already gone?  totally fine.  move on, nothing to delete here.
   if (res.statusCode === 404)
     return this.afterDelete(change)
@@ -322,11 +320,11 @@ FullFat.prototype.ondeletehead = function(change, res) {
   req.on('response', parse(this.ondelete.bind(this, change)))
   req.on('error', this.emit.bind(this, 'error'))
   req.end()
-  console.log('Leaving ondeletehead inline function')
+  logger.debug('Leaving ondeletehead')
 }
 
 FullFat.prototype.ondelete = function(change, er, data, res) {
-  console.log('Entered ondelete inline function')
+  logger.debug('Entered ondelete')
   if (er && er.statusCode === 404)
     this.afterDelete(change)
   else if (er)
@@ -334,20 +332,20 @@ FullFat.prototype.ondelete = function(change, er, data, res) {
   else
     // scorch the earth! remove fully! repeat until 404!
     this.delete(change)
-  console.log('Leaving ondelete inline function')
+  logger.debug('Leaving ondelete')
 }
 
 FullFat.prototype.afterDelete = function(change) {
-  console.log('Entered afterdelete inline function')
+  logger.debug('Entered afterdelete')
   this.emit('delete', change)
   this.resume()
-  console.log('Leaving afterdelete inline function')
+  logger.debug('Leaving afterdelete')
 }
 
 FullFat.prototype.onfatget = function(change, er, f, res) {
-  console.log('Entered onfatget inline function')
+  logger.debug('Entered onfatget')
   if (er && er.statusCode !== 404) {
-    console.log('DEBUG: onfatget: Returning from onfatget inline function on 404 error')
+    logger.debug('onfatget: Returning from onfatget on 404 error')
     return this.emit('error', er)
   }
 
@@ -356,44 +354,44 @@ FullFat.prototype.onfatget = function(change, er, f, res) {
 
   f._attachments = f._attachments || {}
   change.fat = f
-  console.log('DEBUG: onfatget: Calling merge')
+  logger.debug('onfatget: Calling merge')
   this.merge(change)
-  console.log('Leaving onfatget inline function')
+  logger.debug('Leaving onfatget')
 }
 
 
 FullFat.prototype.merge = function(change) {
-  console.log('Entered merge inline function')
+  logger.debug('Entered merge')
   var s = change.doc
   var f = change.fat
 
   // if no versions in the skim record, then nothing to fetch
   if (!s.versions) {
-    console.log('DEBUG: merge: no versions')
-    console.log('Returning from merge inline function with call to resume follow')
+    logger.debug('merge: no versions')
+    logger.debug('Returning from merge with call to resume follow')
     return this.resume()
   }
 
   // Only fetch attachments if it's on the list.
   var pass = true
   if (this.whitelist.length) {
-    console.log('DEBUG: merge: whitelist length "%d"', this.whitelist.length)
+    logger.debug('merge: whitelist length "%d"', this.whitelist.length)
     pass = false
     for (var i = 0; !pass && i < this.whitelist.length; i++) {
-      console.log('DEBUG: merge: whitelist loop, index "%d", element "%s"', i, this.whitelist[i])
+      logger.debug('merge: whitelist loop, index "%d", element "%s"', i, this.whitelist[i])
       var w = this.whitelist[i]
       if (typeof w === 'string') {
-        console.log('DEBUG: merge: whitelist loop, whitelist element type is "string"')
+        logger.debug('merge: whitelist loop, whitelist element type is "string"')
         pass = w === change.id
       } else {
-        console.log('DEBUG: merge: whitelist loop, whitelist element type is "%s"', typeof w)
+        logger.debug('merge: whitelist loop, whitelist element type is "%s"', typeof w)
         pass = w.exec(change.id)
       }
     }
     if (!pass) {
-      console.log('DEBUG: merge: pass, no attachments')
+      logger.debug('merge: pass, no attachments')
       f._attachments = {}
-      console.log('Returning from merge inline function with call to fetchAll')
+      logger.debug('Returning from merge with call to fetchAll')
       return this.fetchAll(change, [], [])
     }
   }
@@ -401,21 +399,21 @@ FullFat.prototype.merge = function(change) {
   var need = []
   var changed = false
   for (var v in s.versions) {
-    console.log('DEBUG: merge: skim version "%s"', v)
+    logger.debug('merge: skim version "%s"', v)
     var tgz = s.versions[v].dist.tarball
-    console.log('DEBUG: merge: skim tgz "%s"', tgz)
+    logger.debug('merge: skim tgz "%s"', tgz)
     var att = path.basename(url.parse(tgz).pathname)
-    console.log('DEBUG: merge: skim att "%s"', att)
+    logger.debug('merge: skim att "%s"', att)
     var ver = s.versions[v]
     f.versions = f.versions || {}
 
     if (!f.versions[v] || f.versions[v].dist.shasum !== ver.dist.shasum) {
-      console.log('DEBUG: merge: fat missing skim version or shasum mismatch')
+      logger.debug('merge: fat missing skim version or shasum mismatch')
       f.versions[v] = s.versions[v]
       need.push(v)
       changed = true
     } else if (!f._attachments[att]) {
-      console.log('DEBUG: merge: fat missing attachment for att')
+      logger.debug('merge: fat missing attachment for att')
       need.push(v)
       changed = true
     }
@@ -423,37 +421,37 @@ FullFat.prototype.merge = function(change) {
 
   // remove any versions that s removes, or which lack attachments
   for (var v in f.versions) {
-    console.log('DEBUG: merge: processing fat versions that skim removes')
+    logger.debug('merge: processing fat versions that skim removes')
     if (!s.versions[v]) {
-      console.log('DEBUG: merge: deleting fat version "%s"', v)
+      logger.debug('merge: deleting fat version "%s"', v)
       delete f.versions[v]
     }
   }
 
 
   for (var a in f._attachments) {
-    console.log('DEBUG: merge: fat attachment "%s"', a)
+    logger.debug('merge: fat attachment "%s"', a)
     var found = false
     for (var v in f.versions) {
-      console.log('DEBUG: merge: attachment: fat version "%s"', v)
+      logger.debug('merge: attachment: fat version "%s"', v)
       var tgz = f.versions[v].dist.tarball
-      console.log('DEBUG: merge: attachment: fat tgz "%s"', tgz)
+      logger.debug('merge: attachment: fat tgz "%s"', tgz)
       var b = path.basename(url.parse(tgz).pathname)
-      console.log('DEBUG: merge: attachment: fat b "%s"', b)
+      logger.debug('merge: attachment: fat b "%s"', b)
       if (b === a) {
-        console.log('DEBUG: merge: attachment: found attachment in version')
+        logger.debug('merge: attachment: found attachment in version')
         found = true
         break
       }
     }
     if (!found) {
-      console.log('DEBUG: merge: attachment: version not found, deleting fat attachment')
+      logger.debug('merge: attachment: version not found, deleting fat attachment')
       delete f._attachments[a]
       changed = true
     }
   }
 
-  console.log('DEBUG: merge: sync fat with skim')
+  logger.debug('merge: sync fat with skim')
   for (var k in s) {
     if (k !== '_attachments' && k !== 'versions') {
       if (changed)
@@ -468,18 +466,18 @@ FullFat.prototype.merge = function(change) {
   changed = readmeTrim(f) || changed
 
   if (!changed) {
-    console.log('DEBUG: merge: nothing changed, calling resume')
+    logger.debug('merge: nothing changed, calling resume')
     this.resume()
   } else {
-    console.log('DEBUG: merge: changed, calling fetchAll')
+    logger.debug('merge: changed, calling fetchAll')
     this.fetchAll(change, need, [])
   }
 
-  console.log('Leaving merge inline function')
+  logger.debug('Leaving merge')
 }
 
 FullFat.prototype.put = function(change, did) {
-  console.log('Entered put inline function')
+  logger.debug('Entered put')
   var f = change.fat
   change.did = did
   // at this point, all the attachments have been fetched into
@@ -497,7 +495,7 @@ FullFat.prototype.put = function(change, did) {
   // because couchdb is a jerk, and ignores disposition headers.
   // Still include the filenames, though, so at least we dtrt.
   did.forEach(function(att) {
-    console.log('DEBUG: put: att name "%s"', att.name)
+    logger.debug('put: att name "%s"', att.name)
     atts[att.name] = {
       length: att.length,
       follows: true
@@ -509,12 +507,12 @@ FullFat.prototype.put = function(change, did) {
 
   var send = []
   Object.keys(atts).forEach(function (name) {
-    console.log('DEBUG: put: atts: name "%s"', JSON.stringify(name))
+    logger.debug('put: atts: name "%s"', JSON.stringify(name))
     var att = atts[name]
 
     if (att.follows !== true) {
-      console.log('DEBUG: put: atts: does not follow')
-      console.log('Returning from put inline function')
+      logger.debug('put: atts: does not follow')
+      logger.debug('Returning from put')
       return
     }
 
@@ -567,11 +565,11 @@ FullFat.prototype.put = function(change, did) {
   req.write(doc)
   this.putAttachments(req, change, boundaries, send)
   req.on('response', parse(this.onputres.bind(this, change)))
-  console.log('Leaving put inline function')
+  logger.debug('Leaving put')
 }
 
 FullFat.prototype.putAttachments = function(req, change, boundaries, send) {
-  console.log('Entered putAttachments inline function')
+  logger.debug('Entered putAttachments')
   // send is the ordered list of [[name, attachment object],...]
   var b = boundaries.shift()
   var ns = send.shift()
@@ -597,11 +595,11 @@ FullFat.prototype.putAttachments = function(req, change, boundaries, send) {
 
   fstr.on('error', this.emit.bind(this, 'error'))
   fstr.pipe(req, { end: false })
-  console.log('Leaving putAttachments inline function')
+  logger.debug('Leaving putAttachments')
 }
 
 FullFat.prototype.onputres = function(change, er, data, res) {
-  console.log('Entered onputres inline function')
+  logger.debug('Entered onputres')
 
   if (!change.id)
     throw new Error('wtf?')
@@ -626,11 +624,11 @@ FullFat.prototype.onputres = function(change, er, data, res) {
     rimraf(this.tmp + '/' + change.id + '-' + change.seq, function() {})
     this.resume()
   }
-  console.log('Leaving onputres inline function')
+  logger.debug('Leaving onputres')
 }
 
 FullFat.prototype.fetchAll = function(change, need, did) {
-  console.log('Entered fetchAll inline function')
+  logger.debug('Entered fetchAll')
   var f = change.fat
   var tmp = path.resolve(this.tmp, change.id + '-' + change.seq)
   var len = need.length
@@ -644,11 +642,11 @@ FullFat.prototype.fetchAll = function(change, need, did) {
       return this.emit('error', er)
     need.forEach(this.fetchOne.bind(this, change, need, did))
   }.bind(this))
-  console.log('Leaving fetchAll inline function')
+  logger.debug('Leaving fetchAll')
 }
 
 FullFat.prototype.fetchOne = function(change, need, did, v) {
-  console.log('Entered fetchOne inline function')
+  logger.debug('Entered fetchOne')
   var f = change.fat
   var r = url.parse(change.doc.versions[v].dist.tarball)
   if (this.registry) {
@@ -666,11 +664,11 @@ FullFat.prototype.fetchOne = function(change, need, did, v) {
   req.on('error', this.emit.bind(this, 'error'))
   req.on('response', this.onattres.bind(this, change, need, did, v, r))
   req.end()
-  console.log('Leaving fetchOne inline function')
+  logger.debug('Leaving fetchOne')
 }
 
 FullFat.prototype.onattres = function(change, need, did, v, r, res) {
-  console.log('Entered onattres inline function')
+  logger.debug('Entered onattres')
   var f = change.fat
   var att = r.href
   var sum = f.versions[v].dist.shasum
@@ -769,45 +767,45 @@ FullFat.prototype.onattres = function(change, need, did, v, r, res) {
     maybeDone(a)
 
   }.bind(this))
-  console.log('Leaving onattres inline function')
+  logger.debug('Leaving onattres')
 }
 
 FullFat.prototype.destroy = function() {
-  console.log('Entered destroy inline function')
+  logger.debug('Entered destroy')
   if (this.follow)
     this.follow.die()
-  console.log('Leaving destroy inline function')
+  logger.debug('Leaving destroy')
 }
 
 FullFat.prototype.pause = function() {
-  console.log('Entered pause inline function')
+  logger.debug('Entered pause')
   if (this.follow) {
-    console.log('DEBUG: pause: "pausing follow"')
+    logger.debug('pause: "pausing follow"')
     this.follow.pause()
   }
-  console.log('Leaving pause inline function')
+  logger.debug('Leaving pause')
 }
 
 FullFat.prototype.resume = function() {
-  console.log('Entered resume inline function')
+  logger.debug('Entered resume')
   this.writeSeq()
   if (this.follow) {
-    console.log('DEBUG: resume: "resume follow"')
+    logger.debug('resume: "resume follow"')
     this.follow.resume()
   }
-  console.log('Leaving resume inline function')
+  logger.debug('Leaving resume')
 }
 
 util.inherits(Counter, stream.Writable)
 function Counter(options) {
-  console.log('Entered Counter inline function')
+  logger.debug('Entered Counter')
   stream.Writable.call(this, options)
   this.count = 0
-  console.log('Leaving Counter inline function')
+  logger.debug('Leaving Counter')
 }
 Counter.prototype._write = function(chunk, encoding, cb) {
-  console.log('Entered Counter _write inline function')
+  logger.debug('Entered Counter _write')
   this.count += chunk.length
   cb()
-  console.log('Leaving Counter _write inline function')
+  logger.debug('Leaving Counter _write')
 }
