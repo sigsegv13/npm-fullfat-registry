@@ -27,7 +27,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git://github.com/sigsegv13/npm-fullfat-registry.git#debug"
+    "url": "git://github.com/sigsegv13/npm-fullfat-registry.git"
   },
   "keywords": [
     "npm",
@@ -35,9 +35,6 @@
     "attachments"
   ],
   "author": "Isaac Z. Schlueter <i@izs.me> (http://blog.izs.me/)",
-  "contributors": {
-    "Thomas Dorr <tdorr@tnltech.com> (https://github.com/sigsegv13/npm-fullfat-registry)"
-  },
   "license": "ISC",
   "bugs": {
     "url": "https://github.com/isaacs/npm-fullfat-registry/issues"
