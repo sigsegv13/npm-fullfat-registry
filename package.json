@@ -15,7 +15,8 @@
     "parse-json-response": "1",
     "npm-registry-readme-trim": "~1.0.0",
     "http-https": "~1.0.0",
-    "pino": "~5.13.6"
+    "pino": "~5.13.6",
+    "pino-pretty": "~3.4.0"
   },
   "devDependencies": {
     "st": "~0.2.3",
