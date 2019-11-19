@@ -14,17 +14,22 @@ var crypto = require('crypto')
 var once = require('once')
 var parse = require('parse-json-response')
 var hh = require('http-https')
+var pino = require('pino')
 
 var version = require('./package.json').version
 var ua = 'npm FullFat/' + version + ' node/' + process.version
 var readmeTrim = require('npm-registry-readme-trim')
+
+var logger = pino({ level: process.env.LOG_LEVEL || 'info' })
 
 util.inherits(FullFat, EE)
 
 module.exports = FullFat
 
 function FullFat(conf) {
-  console.log('Entered FullFat')
+  console.log('CONSOLE: Entered FullFat')
+  logger.info('INFO: Entered FullFat')
+  logger.debug('DEBUG: Entered FullFat')
   if (!conf.skim || !conf.fat) {
     throw new Error('skim and fat database urls required')
   }
