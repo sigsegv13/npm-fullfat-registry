@@ -312,7 +312,7 @@ FullFat.prototype.ondeletehead = function(change, res) {
     return this.afterDelete(change)
 
   var rev = res.headers.etag.replace(/^"|"$/g, '')
-  opt = url.parse(this.fat + '/' + encodeURIComponent(change.id)` + '?rev=' + rev)
+  opt = url.parse(this.fat + '/' + encodeURIComponent(change.id) + '?rev=' + rev)
   opt.headers = {
     'user-agent': this.ua,
     'connection': 'close'
