@@ -659,7 +659,7 @@ FullFat.prototype.fetchOne = function(change, need, did, v) {
   var f = change.fat
   logger.debug('fetchOne: version (v): "%s"', v)
   var r = url.parse(change.doc.versions[v].dist.tarball)
-  logger.debug('fetchOne: url based on skim doc (r): "%s"', r)
+  logger.debug('fetchOne: url based on skim doc (r): "%s"', r.pathname)
   if (this.registry) {
     logger.debug('fetchOne: url based on registry')
     var p = '/' + encodeURIComponent(change.id) + '/-/' + path.basename(r.pathname)
@@ -691,9 +691,10 @@ FullFat.prototype.onattres = function(change, need, did, v, r, res) {
   logger.debug('onattres: att: "%s"', att)
   var sum = f.versions[v].dist.shasum
   logger.debug('onattres: fat shasum: "%s"', sum)
-  var filename = f.name + '-' + v + '.tgz'
+  var filename = path.basename(f.name) + '-' + v + '.tgz'
   logger.debug('onattres: fat filename: "%s"', filename)
   var file = path.join(this.tmp, change.id + '-' + change.seq, filename)
+  logger.debug('onattres: fat file: "%s"', file)
 
   // TODO: If the file already exists, get its size.
   // If the size matches content-length, get the md5
