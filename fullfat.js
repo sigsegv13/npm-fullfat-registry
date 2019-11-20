@@ -782,8 +782,9 @@ FullFat.prototype.onattres = function(change, need, did, v, r, res) {
     // registry where this is being stored.  It'll be rewritten by
     // the _show/pkg function when going through the rewrites, anyway,
     // but this url will work if the couch itself is accessible.
-    var newatt = this.publicFat + '/' + change.id +
-                 '/' + change.id + '-' + v + '.tgz'
+  var filename = path.basename(f.name) + '-' + v + '.tgz'
+    var newatt = this.publicFat + '/' + encodeURIComponent(change.id) +
+                 '/' + path.basename(change.id) + '-' + v + '.tgz'
     logger.debug('onattres: fstr close event: newatt "%s"', newatt)
     f.versions[v].dist.tarball = newatt
 
