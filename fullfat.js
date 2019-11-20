@@ -495,7 +495,7 @@ FullFat.prototype.put = function(change, did) {
   // because couchdb is a jerk, and ignores disposition headers.
   // Still include the filenames, though, so at least we dtrt.
   did.forEach(function(att) {
-    logger.debug('put: att name "%s"', att.name)
+    logger.debug('put: did begin: att name "%s"', att.name)
     atts[att.name] = {
       length: att.length,
       follows: true
@@ -503,11 +503,13 @@ FullFat.prototype.put = function(change, did) {
 
     if (att.type)
       atts[att.name].type = att.type
+
+    logger.debug('put: did end: att name "%s"', att.name)
   })
 
   var send = []
   Object.keys(atts).forEach(function (name) {
-    logger.debug('put: atts: name "%s"', JSON.stringify(name))
+    logger.debug('put: object keys begin: atts name "%s"', JSON.stringify(name))
     var att = atts[name]
 
     if (att.follows !== true) {
@@ -531,6 +533,7 @@ FullFat.prototype.put = function(change, did) {
 
     boundaries.push(b)
     bSize += b.length
+    logger.debug('put: object keys end: atts name "%s"', JSON.stringify(name))
   })
 
   // one last boundary at the end
@@ -541,6 +544,7 @@ FullFat.prototype.put = function(change, did) {
   // put with new_edits=false to retain the same rev
   // this assumes that NOTHING else is writing to this database!
   var p = url.parse(this.fat + '/' + f.name + '?new_edits=false')
+  logger.debug('put: url "%s"', p.pathname)
   p.method = 'PUT'
   p.headers = {
     'user-agent': this.ua,
@@ -559,11 +563,17 @@ FullFat.prototype.put = function(change, did) {
 
   p.headers['content-length'] = attSize + bSize + doc.length
 
+  logger.debug('put: executing put request')
   var req = hh.request(p)
+  logger.debug('put: setting request error event')
   req.on('error', this.emit.bind(this, 'error'))
+  logger.debug('put: writing boundary')
   req.write(b, 'ascii')
+  logger.debug('put: writing doc')
   req.write(doc)
+  logger.debug('put: calling putAttachments')
   this.putAttachments(req, change, boundaries, send)
+  logger.debug('put: setting request response event with onputres')
   req.on('response', parse(this.onputres.bind(this, change)))
   logger.debug('Leaving put')
 }
@@ -576,23 +586,33 @@ FullFat.prototype.putAttachments = function(req, change, boundaries, send) {
 
   // last one!
   if (!ns) {
+    logger.debug('putAttachments: no ns, writing boundary')
     req.write(b, 'ascii')
+    logger.debug('Returning from putAttachments with request end()')
     return req.end()
   }
 
   var name = ns[0]
+  logger.debug('putAttachments: name "%s"', name)
+  logger.debug('putAttachments: writing boundary')
   req.write(b, 'ascii')
   var file = path.join(this.tmp, change.id + '-' + change.seq, name)
+  logger.debug('putAttachments: file "%s"', file)
+  logger.debug('putAttachments: creating read stream for file "%s"', file)
   var fstr = fs.createReadStream(file)
 
+  logger.debug('putAttachments: setting file stream end event')
   fstr.on('end', function() {
+    logger.debug('putAttachments: end event: emit upload for "%s"', name)
     this.emit('upload', {
       change: change,
       name: name
     })
+    logger.debug('putAttachments: end event: calling putAttachments')
     this.putAttachments(req, change, boundaries, send)
   }.bind(this))
 
+  logger.debug('putAttachments: setting file stream error event')
   fstr.on('error', this.emit.bind(this, 'error'))
   fstr.pipe(req, { end: false })
   logger.debug('Leaving putAttachments')
@@ -614,14 +634,19 @@ FullFat.prototype.onputres = function(change, er, data, res) {
   if (er && er.statusCode === 412 &&
       0 === er.message.indexOf('{"error":"missing_stub"') &&
       !change.didFake404){
+    logger.debug('onputres: missing stub error, calling onfatget with status code 404')
     change.didFake404 = true
     this.onfatget(change, { statusCode: 404 }, {}, {})
-  } else if (er)
+  } else if (er) {
+    logger.debug('onputres: emit error')
     this.emit('error', er)
-  else {
+  } else {
+    logger.debug('onputres: emit put')
     this.emit('put', change, data)
     // Just a best-effort cleanup.  No big deal, really.
+    logger.debug('onputres: calling rimraf for cleanup')
     rimraf(this.tmp + '/' + change.id + '-' + change.seq, function() {})
+    logger.debug('onputres: calling resume')
     this.resume()
   }
   logger.debug('Leaving onputres')
