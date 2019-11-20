@@ -81,10 +81,10 @@ function FullFat(conf) {
 FullFat.prototype.readSeq = function(file) {
   logger.debug('Entered readSeq')
   if (!this.seqFile) {
-    logger.debug('readSeq: "no seq file config, calling start"')
+    logger.debug('readSeq: no seq file config, calling start')
     process.nextTick(this.start.bind(this))
   } else {
-    logger.debug('readSeq: "calling gotSeq"')
+    logger.debug('readSeq: calling gotSeq')
     fs.readFile(file, 'ascii', this.gotSeq.bind(this))
   }
   logger.debug('Leaving readSeq')
@@ -93,10 +93,10 @@ FullFat.prototype.readSeq = function(file) {
 FullFat.prototype.gotSeq = function(er, data) {
   logger.debug('Entered gotSeq')
   if (er && er.code === 'ENOENT') {
-    logger.debug('gotSeq: "no seq file"')
+    logger.debug('gotSeq: no seq file')
     data = '0'
   } else if (er) {
-    logger.debug('gotSeq: "emit error"')
+    logger.debug('gotSeq: emit error')
     return this.emit('error', er)
   }
 
@@ -104,7 +104,7 @@ FullFat.prototype.gotSeq = function(er, data) {
   logger.debug('gotSeq: data - "%d"', data)
   this.since = data
   logger.debug('gotSeq: since - "%d"', this.since)
-  logger.debug('gotSeq: "calling start"')
+  logger.debug('gotSeq: calling start')
   this.start()
   logger.debug('Leaving gotSeq')
 }
@@ -164,7 +164,7 @@ FullFat.prototype.writeSeq = function() {
 FullFat.prototype.onchange = function(er, change) {
   logger.debug('Entered onchange')
   if (er) {
-    logger.debug('onchange: "error')
+    logger.debug('onchange: error')
     return this.emit('error', er)
   }
 
@@ -180,10 +180,10 @@ FullFat.prototype.onchange = function(er, change) {
   this.emit('change', change)
 
   if (change.deleted) {
-    logger.debug('onchange: "calling delete"')
+    logger.debug('onchange: calling delete')
     this.delete(change)
   } else {
-    logger.debug('onchange: "calling getDoc"')
+    logger.debug('onchange: calling getDoc')
     this.getDoc(change)
   }
   logger.debug('Leaving onchange')
@@ -201,9 +201,9 @@ FullFat.prototype.getDoc = function(change) {
 
   logger.debug('getDoc: executing skim request for doc "%s"', change.id)
   var req = hh.get(opt)
-  logger.debug('getDoc: "setting skim request error event"')
+  logger.debug('getDoc: setting skim request error event')
   req.on('error', this.emit.bind(this, 'error'))
-  logger.debug('getDoc: "setting skim request response event to call ongetdoc"')
+  logger.debug('getDoc: setting skim request response event to call ongetdoc')
   req.on('response', parse(this.ongetdoc.bind(this, change)))
   logger.debug('Leaving getDoc')
 }
@@ -211,18 +211,18 @@ FullFat.prototype.getDoc = function(change) {
 FullFat.prototype.ongetdoc = function(change, er, data, res) {
   logger.debug('Entered ongetdoc')
   if (er) {
-    logger.debug('ongetdoc: "error"')
+    logger.debug('ongetdoc: error')
     this.emit('error', er)
   } else {
     change.doc = data
     if (change.id.match(/^_design\//)) {
-      logger.debug('ongetdoc: "calling putDesign"')
+      logger.debug('ongetdoc: calling putDesign')
       this.putDesign(change)
     } else if (data.time && data.time.unpublished) {
-      logger.debug('ongetdoc: "calling unpublish"')
+      logger.debug('ongetdoc: calling unpublish')
       this.unpublish(change)
     } else {
-      logger.debug('ongetdoc: "calling putDoc"')
+      logger.debug('ongetdoc: calling putDoc')
       this.putDoc(change)
     }
   }
@@ -248,9 +248,9 @@ FullFat.prototype.putDoc = function(change) {
   }
   logger.debug('putDoc: executing fat request for doc "%s"', change.id)
   var req = hh.get(opt)
-  logger.debug('putDoc: "setting fat request error event"')
+  logger.debug('putDoc: setting fat request error event')
   req.on('error', this.emit.bind(this, 'error'))
-  logger.debug('putDoc: "setting fat request response event to call onfatget"')
+  logger.debug('putDoc: setting fat request response event to call onfatget')
   req.on('response', parse(this.onfatget.bind(this, change)))
   logger.debug('Leaving putDoc')
 }
@@ -630,16 +630,25 @@ FullFat.prototype.onputres = function(change, er, data, res) {
 FullFat.prototype.fetchAll = function(change, need, did) {
   logger.debug('Entered fetchAll')
   var f = change.fat
+  logger.debug('fetchAll: tmp component this.tmp: "%s"', this.tmp)
+  logger.debug('fetchAll: tmp component change.id: "%s"', change.id)
+  logger.debug('fetchAll: tmp component change.seq: "%d"', change.seq)
   var tmp = path.resolve(this.tmp, change.id + '-' + change.seq)
   var len = need.length
-  if (!len)
+  if (!len) {
+    logger.debug('fetchAll: Returning from fetchAll, nothing to fetch')
     return this.put(change, did)
+  }
 
   var errState = null
 
+  logger.debug('fetchAll: creating tmp dir: "%s"', tmp)
   mkdirp(tmp, function(er) {
-    if (er)
+    if (er) {
+      logger.debug('Returning from fetchAll on error to create tmp dir')
       return this.emit('error', er)
+    }
+    logger.debug('fetchAll: Binding fetchOne for each item in need')
     need.forEach(this.fetchOne.bind(this, change, need, did))
   }.bind(this))
   logger.debug('Leaving fetchAll')
@@ -648,10 +657,15 @@ FullFat.prototype.fetchAll = function(change, need, did) {
 FullFat.prototype.fetchOne = function(change, need, did, v) {
   logger.debug('Entered fetchOne')
   var f = change.fat
+  logger.debug('fetchOne: version (v): "%s"', v)
   var r = url.parse(change.doc.versions[v].dist.tarball)
+  logger.debug('fetchOne: url based on skim doc (r): "%s"', r)
   if (this.registry) {
+    logger.debug('fetchOne: url based on registry')
     var p = '/' + encodeURIComponent(change.id) + '/-/' + path.basename(r.pathname)
+    logger.debug('fetchOne: registry: path (p): "%s"', p)
     r = url.parse(this.registry + p)
+    logger.debug('fetchOne: url based on registry (r): "%s"', r)
   }
 
   r.method = 'GET'
@@ -660,8 +674,11 @@ FullFat.prototype.fetchOne = function(change, need, did, v) {
     'connection': 'close'
   }
 
+  logger.debug('fetchOne: executing request')
   var req = hh.request(r)
+  logger.debug('fetchOne: setting request error event')
   req.on('error', this.emit.bind(this, 'error'))
+  logger.debug('fetchOne: setting request response event to call onattres')
   req.on('response', this.onattres.bind(this, change, need, did, v, r))
   req.end()
   logger.debug('Leaving fetchOne')
@@ -671,8 +688,11 @@ FullFat.prototype.onattres = function(change, need, did, v, r, res) {
   logger.debug('Entered onattres')
   var f = change.fat
   var att = r.href
+  logger.debug('onattres: att: "%s"', att)
   var sum = f.versions[v].dist.shasum
+  logger.debug('onattres: fat shasum: "%s"', sum)
   var filename = f.name + '-' + v + '.tgz'
+  logger.debug('onattres: fat filename: "%s"', filename)
   var file = path.join(this.tmp, change.id + '-' + change.seq, filename)
 
   // TODO: If the file already exists, get its size.
@@ -680,32 +700,40 @@ FullFat.prototype.onattres = function(change, need, did, v, r, res) {
   // If the md5 matches content-md5, then don't bother downloading!
 
   function skip() {
+    logger.debug('onattres: entered skip')
     rimraf(file, function() {})
     delete f.versions[v]
     if (f._attachments)
       delete f._attachments[file]
     need.splice(need.indexOf(v), 1)
     maybeDone(null)
+    logger.debug('onattres: leaving skip')
   }
 
   var maybeDone = function maybeDone(a) {
+    logger.debug('onattres: entered maybeDone')
     if (a)
       this.emit('download', a)
     if (need.length === did.length)
       this.put(change, did)
+    logger.debug('onattres: leaving maybeDone')
   }.bind(this)
 
   // if the attachment can't be found, then skip that version
   // it's uninstallable as of right now, and may or may not get
   // fixed in a future update
   if (res.statusCode !== 200) {
+    logger.debug('onattres: attachment not found, status code "%d"', res.statusCode)
     var er = new Error('Error fetching attachment: ' + att)
     er.statusCode = res.statusCode
     er.code = 'attachment-fetch-fail'
-    if (this.missingLog)
+    if (this.missingLog) {
+      logger.debug('Returning from onattres with an append to missing log')
       return fs.appendFile(this.missingLog, att + '\n', skip)
-    else
+    } else {
+      logger.debug('Returning from onattres with an error')
       return this.emit('error', er)
+    }
   }
 
   var fstr = fs.createWriteStream(file)
@@ -716,9 +744,11 @@ FullFat.prototype.onattres = function(change, need, did, v, r, res) {
   var errState = null
 
   sha.on('data', function(c) {
+    logger.debug('onattres: entered sha on data')
     c = c.toString('hex')
     if (c === sum)
       shaOk = true
+    logger.debug('onattres: leaving sha event')
   }.bind(this))
 
   if (!res.headers['content-length']) {
@@ -730,17 +760,21 @@ FullFat.prototype.onattres = function(change, need, did, v, r, res) {
   res.pipe(fstr)
 
   fstr.on('error', function(er) {
+    logger.debug('onattres: entered fstr on error')
     er.change = change
     er.version = v
     er.path = file
     er.url = att
     this.emit('error', errState = errState || er)
+    logger.debug('onattres: leaving fstr event')
   }.bind(this))
 
   fstr.on('close', function() {
+    logger.debug('onattres: entered fstr on close')
     if (errState || !shaOk) {
       // something didn't work, but the error was squashed
       // take that as a signal to just delete this version
+      logger.debug('onattres: returning from fstr close event with skip()')
       return skip()
     }
     // it worked!  change the dist.tarball url to point to the
@@ -749,6 +783,7 @@ FullFat.prototype.onattres = function(change, need, did, v, r, res) {
     // but this url will work if the couch itself is accessible.
     var newatt = this.publicFat + '/' + change.id +
                  '/' + change.id + '-' + v + '.tgz'
+    logger.debug('onattres: fstr close event: newatt "%s"', newatt)
     f.versions[v].dist.tarball = newatt
 
     if (res.headers['content-length'])
@@ -763,9 +798,12 @@ FullFat.prototype.onattres = function(change, need, did, v, r, res) {
       length: cl,
       type: res.headers['content-type']
     }
+    logger.debug('onattres: fstr close event: calling did.push')
     did.push(a)
+    logger.debug('onattres: fstr close event: calling maybeDone')
     maybeDone(a)
 
+    logger.debug('onattres: leaving fstr close event')
   }.bind(this))
   logger.debug('Leaving onattres')
 }
@@ -780,7 +818,7 @@ FullFat.prototype.destroy = function() {
 FullFat.prototype.pause = function() {
   logger.debug('Entered pause')
   if (this.follow) {
-    logger.debug('pause: "pausing follow"')
+    logger.debug('pause: pausing follow')
     this.follow.pause()
   }
   logger.debug('Leaving pause')
@@ -790,7 +828,7 @@ FullFat.prototype.resume = function() {
   logger.debug('Entered resume')
   this.writeSeq()
   if (this.follow) {
-    logger.debug('resume: "resume follow"')
+    logger.debug('resume: resume follow')
     this.follow.resume()
   }
   logger.debug('Leaving resume')
