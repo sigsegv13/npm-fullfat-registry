@@ -543,7 +543,7 @@ FullFat.prototype.put = function(change, did) {
 
   // put with new_edits=false to retain the same rev
   // this assumes that NOTHING else is writing to this database!
-  var p = url.parse(this.fat + '/' + f.name + '?new_edits=false')
+  var p = url.parse(this.fat + '/' + encodeURIComponent(f.name) + '?new_edits=false')
   logger.debug('put: url "%s"', p.pathname)
   p.method = 'PUT'
   p.headers = {
