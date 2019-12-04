@@ -15,12 +15,19 @@ var once = require('once')
 var parse = require('parse-json-response')
 var hh = require('http-https')
 var pino = require('pino')
+var debug = require('debug')
 
 var version = require('./package.json').version
 var ua = 'npm FullFat/' + version + ' node/' + process.version
 var readmeTrim = require('npm-registry-readme-trim')
 
+var slice = [].slice
+
 var logger = pino({ prettyPrint: true, level: process.env.LOG_LEVEL || 'info' })
+
+var getLogger = function(name) {
+  return debug('fullfat:'+name)
+}
 
 util.inherits(FullFat, EE)
 
@@ -177,6 +184,8 @@ FullFat.prototype.onchange = function(er, change) {
   this.pause()
   this.since = change.seq
 
+  change.log = getLogger(change.id)
+
   this.emit('change', change)
 
   if (change.deleted) {
@@ -191,6 +200,7 @@ FullFat.prototype.onchange = function(er, change) {
 
 FullFat.prototype.getDoc = function(change) {
   logger.debug('Entered getDoc')
+  change.log('getDoc')
   var q = '?revs=true&att_encoding_info=true'
   var opt = url.parse(this.skim + '/' + encodeURIComponent(change.id) + q)
   opt.method = 'GET'
@@ -210,6 +220,7 @@ FullFat.prototype.getDoc = function(change) {
 
 FullFat.prototype.ongetdoc = function(change, er, data, res) {
   logger.debug('Entered ongetdoc')
+  change.log('ongetdoc')
   if (er) {
     logger.debug('ongetdoc: error')
     this.emit('error', er)
@@ -229,15 +240,17 @@ FullFat.prototype.ongetdoc = function(change, er, data, res) {
   logger.debug('Leaving ongetdoc')
 }
 
-FullFat.prototype.unpublish = function(change) {
+FullFat.prototype.unpublish = function unpublish(change) {
   logger.debug('Entered unpublish')
+  change.log(arguments.callee.name)
   change.fat = change.doc
   this.put(change, [])
   logger.debug('Leaving unpublish')
 }
 
-FullFat.prototype.putDoc = function(change) {
+FullFat.prototype.putDoc = function putDoc(change) {
   logger.debug('Entered putDoc')
+  change.log(arguments.callee.name)
   var q = '?revs=true&att_encoding_info=true'
   var opt = url.parse(this.fat + '/' + encodeURIComponent(change.id) + q)
 
@@ -255,8 +268,9 @@ FullFat.prototype.putDoc = function(change) {
   logger.debug('Leaving putDoc')
 }
 
-FullFat.prototype.putDesign = function(change) {
+FullFat.prototype.putDesign = function putDesign(change) {
   logger.debug('Entered putDesign')
+  change.log(arguments.callee.name)
   var doc = change.doc
   this.pause()
   var opt = url.parse(this.fat + '/' + encodeURIComponent(change.id) + '?new_edits=false')
@@ -276,8 +290,9 @@ FullFat.prototype.putDesign = function(change) {
   logger.debug('Entered putDesign')
 }
 
-FullFat.prototype.onputdesign = function(change, er, data, res) {
+FullFat.prototype.onputdesign = function onputdesign(change, er, data, res) {
   logger.debug('Entered onputdesign')
+  change.log(arguments.callee.name)
   if (er)
     return this.emit('error', er)
   this.emit('putDesign', change, data)
@@ -285,8 +300,9 @@ FullFat.prototype.onputdesign = function(change, er, data, res) {
   logger.debug('Leaving onputdesign')
 }
 
-FullFat.prototype.delete = function(change) {
+FullFat.prototype.delete = function delete_(change) {
   logger.debug('Entered delete')
+  change.log(arguments.callee.name)
   var name = change.id
 
   var opt = url.parse(this.fat + '/' + encodeURIComponent(name))
@@ -303,8 +319,9 @@ FullFat.prototype.delete = function(change) {
   logger.debug('Leaving delete')
 }
 
-FullFat.prototype.ondeletehead = function(change, res) {
+FullFat.prototype.ondeletehead = function ondeletehead(change, res) {
   logger.debug('Entered ondeletehead')
+  change.log(arguments.callee.name)
   // already gone?  totally fine.  move on, nothing to delete here.
   if (res.statusCode === 404)
     return this.afterDelete(change)
@@ -323,8 +340,9 @@ FullFat.prototype.ondeletehead = function(change, res) {
   logger.debug('Leaving ondeletehead')
 }
 
-FullFat.prototype.ondelete = function(change, er, data, res) {
+FullFat.prototype.ondelete = function ondelete(change, er, data, res) {
   logger.debug('Entered ondelete')
+  change.log(arguments.callee.name)
   if (er && er.statusCode === 404)
     this.afterDelete(change)
   else if (er)
@@ -335,15 +353,17 @@ FullFat.prototype.ondelete = function(change, er, data, res) {
   logger.debug('Leaving ondelete')
 }
 
-FullFat.prototype.afterDelete = function(change) {
+FullFat.prototype.afterDelete = function afterDelete(change) {
   logger.debug('Entered afterdelete')
+  change.log(arguments.callee.name)
   this.emit('delete', change)
   this.resume()
   logger.debug('Leaving afterdelete')
 }
 
-FullFat.prototype.onfatget = function(change, er, f, res) {
+FullFat.prototype.onfatget = function onfatget(change, er, f, res) {
   logger.debug('Entered onfatget')
+  change.log(arguments.callee.name)
   if (er && er.statusCode !== 404) {
     logger.debug('onfatget: Returning from onfatget on 404 error')
     return this.emit('error', er)
@@ -360,8 +380,9 @@ FullFat.prototype.onfatget = function(change, er, f, res) {
 }
 
 
-FullFat.prototype.merge = function(change) {
+FullFat.prototype.merge = function merge(change) {
   logger.debug('Entered merge')
+  change.log(arguments.callee.name)
   var s = change.doc
   var f = change.fat
 
@@ -369,6 +390,7 @@ FullFat.prototype.merge = function(change) {
   if (!s.versions) {
     logger.debug('merge: no versions')
     logger.debug('Returning from merge with call to resume follow')
+    change.log('no versions')
     return this.resume()
   }
 
@@ -376,6 +398,7 @@ FullFat.prototype.merge = function(change) {
   var pass = true
   if (this.whitelist.length) {
     logger.debug('merge: whitelist length "%d"', this.whitelist.length)
+    change.log('processing whitelist')
     pass = false
     for (var i = 0; !pass && i < this.whitelist.length; i++) {
       logger.debug('merge: whitelist loop, index "%d", element "%s"', i, this.whitelist[i])
@@ -419,11 +442,14 @@ FullFat.prototype.merge = function(change) {
     }
   }
 
+  change.log('need', need)
+
   // remove any versions that s removes, or which lack attachments
   for (var v in f.versions) {
     logger.debug('merge: processing fat versions that skim removes')
     if (!s.versions[v]) {
       logger.debug('merge: deleting fat version "%s"', v)
+      change.log('deleting version', v)
       delete f.versions[v]
     }
   }
@@ -439,13 +465,15 @@ FullFat.prototype.merge = function(change) {
       var b = path.basename(url.parse(tgz).pathname)
       logger.debug('merge: attachment: fat b "%s"', b)
       if (b === a) {
-        logger.debug('merge: attachment: found attachment in version')
+        logger.debug('merge: attachment: found existing attachment in version')
+        change.log('found existing attachment', b)
         found = true
         break
       }
     }
     if (!found) {
       logger.debug('merge: attachment: version not found, deleting fat attachment')
+      change.log('deleting attachment', a)
       delete f._attachments[a]
       changed = true
     }
@@ -465,6 +493,8 @@ FullFat.prototype.merge = function(change) {
 
   changed = readmeTrim(f) || changed
 
+  change.log('changes detected:', changed)
+
   if (!changed) {
     logger.debug('merge: nothing changed, calling resume')
     this.resume()
@@ -476,8 +506,9 @@ FullFat.prototype.merge = function(change) {
   logger.debug('Leaving merge')
 }
 
-FullFat.prototype.put = function(change, did) {
+FullFat.prototype.put = function put(change, did) {
   logger.debug('Entered put')
+  change.log(arguments.callee.name)
   var f = change.fat
   change.did = did
   // at this point, all the attachments have been fetched into
@@ -494,18 +525,18 @@ FullFat.prototype.put = function(change, did) {
   // It's important that we do everything in enumeration order,
   // because couchdb is a jerk, and ignores disposition headers.
   // Still include the filenames, though, so at least we dtrt.
-  did.forEach(function(att) {
-    logger.debug('put: did begin: att name "%s"', att.name)
-    atts[att.name] = {
-      length: att.length,
-      follows: true
-    }
-
-    if (att.type)
-      atts[att.name].type = att.type
-
-    logger.debug('put: did end: att name "%s"', att.name)
-  })
+  // did.forEach(function(att) {
+  //   logger.debug('put: did begin: att name "%s"', att.name)
+  //   atts[att.name] = {
+  //     length: att.length,
+  //     follows: true
+  //   }
+  //
+  //   if (att.type)
+  //     atts[att.name].type = att.type
+  //
+  //   logger.debug('put: did end: att name "%s"', att.name)
+  // })
 
   var send = []
   Object.keys(atts).forEach(function (name) {
@@ -570,6 +601,7 @@ FullFat.prototype.put = function(change, did) {
   logger.debug('put: writing boundary')
   req.write(b, 'ascii')
   logger.debug('put: writing doc')
+  change.log('writing doc:', JSON.stringify(JSON.parse(doc), null, 2))
   req.write(doc)
   logger.debug('put: calling putAttachments')
   this.putAttachments(req, change, boundaries, send)
@@ -578,7 +610,7 @@ FullFat.prototype.put = function(change, did) {
   logger.debug('Leaving put')
 }
 
-FullFat.prototype.putAttachments = function(req, change, boundaries, send) {
+FullFat.prototype.putAttachments = function putAttachments(req, change, boundaries, send) {
   logger.debug('Entered putAttachments')
   // send is the ordered list of [[name, attachment object],...]
   var b = boundaries.shift()
@@ -587,6 +619,7 @@ FullFat.prototype.putAttachments = function(req, change, boundaries, send) {
   // last one!
   if (!ns) {
     logger.debug('putAttachments: no ns, writing boundary')
+    change.log(arguments.callee.name, '---last')
     req.write(b, 'ascii')
     logger.debug('Returning from putAttachments with request end()')
     return req.end()
@@ -595,15 +628,19 @@ FullFat.prototype.putAttachments = function(req, change, boundaries, send) {
   var name = ns[0]
   logger.debug('putAttachments: name "%s"', name)
   logger.debug('putAttachments: writing boundary')
+  change.log(arguments.callee.name, name, 'start')
   req.write(b, 'ascii')
   var file = path.join(this.tmp, change.id + '-' + change.seq, name)
   logger.debug('putAttachments: file "%s"', file)
   logger.debug('putAttachments: creating read stream for file "%s"', file)
-  var fstr = fs.createReadStream(file)
+  var data = fs.readFileSync(file)
+  //var fstr = fs.createReadStream(file)
 
   logger.debug('putAttachments: setting file stream end event')
-  fstr.on('end', function() {
+  // fstr.on('end', function() {
+  req.write(data, function() {
     logger.debug('putAttachments: end event: emit upload for "%s"', name)
+    change.log(arguments.callee.name, name, 'done')
     this.emit('upload', {
       change: change,
       name: name
@@ -612,14 +649,15 @@ FullFat.prototype.putAttachments = function(req, change, boundaries, send) {
     this.putAttachments(req, change, boundaries, send)
   }.bind(this))
 
-  logger.debug('putAttachments: setting file stream error event')
-  fstr.on('error', this.emit.bind(this, 'error'))
-  fstr.pipe(req, { end: false })
+  // logger.debug('putAttachments: setting file stream error event')
+  // fstr.on('error', this.emit.bind(this, 'error'))
+  // fstr.pipe(req, { end: false })
   logger.debug('Leaving putAttachments')
 }
 
-FullFat.prototype.onputres = function(change, er, data, res) {
+FullFat.prototype.onputres = function onputres(change, er, data, res) {
   logger.debug('Entered onputres')
+  change.log(arguments.callee.name)
 
   if (!change.id)
     throw new Error('wtf?')
@@ -652,8 +690,9 @@ FullFat.prototype.onputres = function(change, er, data, res) {
   logger.debug('Leaving onputres')
 }
 
-FullFat.prototype.fetchAll = function(change, need, did) {
+FullFat.prototype.fetchAll = function fetchAll(change, need, did) {
   logger.debug('Entered fetchAll')
+  change.log(arguments.callee.name)
   var f = change.fat
   logger.debug('fetchAll: tmp component this.tmp: "%s"', this.tmp)
   logger.debug('fetchAll: tmp component change.id: "%s"', change.id)
@@ -679,8 +718,9 @@ FullFat.prototype.fetchAll = function(change, need, did) {
   logger.debug('Leaving fetchAll')
 }
 
-FullFat.prototype.fetchOne = function(change, need, did, v) {
+FullFat.prototype.fetchOne = function fetchOne(change, need, did, v) {
   logger.debug('Entered fetchOne')
+  change.log(arguments.callee.name)
   var f = change.fat
   logger.debug('fetchOne: version (v): "%s"', v)
   var r = url.parse(change.doc.versions[v].dist.tarball)
@@ -709,8 +749,9 @@ FullFat.prototype.fetchOne = function(change, need, did, v) {
   logger.debug('Leaving fetchOne')
 }
 
-FullFat.prototype.onattres = function(change, need, did, v, r, res) {
+FullFat.prototype.onattres = function onattres(change, need, did, v, r, res) {
   logger.debug('Entered onattres')
+  change.log(arguments.callee.name)
   var f = change.fat
   var att = r.href
   logger.debug('onattres: att: "%s"', att)
