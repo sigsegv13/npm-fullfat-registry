@@ -1126,7 +1126,7 @@ FullFat.prototype.destroy = function() {
 FullFat.prototype.pause = function() {
   logger('Entered pause')
   if (this.follow) {
-    logger.debug('pause: pausing follow')
+    logger('pause: pausing follow')
     this.follow.pause()
   }
   logger('Leaving pause')
@@ -1136,7 +1136,7 @@ FullFat.prototype.resume = function() {
   logger('Entered resume')
   this.writeSeq()
   if (this.follow) {
-    logger.debug('resume: resume follow')
+    logger('resume: resume follow')
     this.follow.resume()
   }
   logger('Leaving resume')
