@@ -633,7 +633,7 @@ FullFat.prototype.put = function put(change, did) {
     if (att.type)
       new_atts[att.name].type = att.type
 
-    logger('put: did end: att name', new_att.name)
+    logger('put: did end: att name', att.name)
   })
 
   var send = []
